@@ -26,6 +26,7 @@ export function useAuthSession() {
   const { data: session, isPending, error, refetch } = authClient.useSession();
   const [backendProfile, setBackendProfile] = useState<BackendProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Fetch backend profile when session becomes available
   useEffect(() => {
@@ -36,16 +37,19 @@ export function useAuthSession() {
         if (!cancelled) {
           setBackendProfile(null);
           setIsProfileLoading(false);
+          setProfileError(null);
         }
         return;
       }
 
       setIsProfileLoading(true);
+      setProfileError(null);
       try {
         const token = await getAuthToken();
         if (!token) {
           if (!cancelled) {
             setBackendProfile(null);
+            setProfileError("Authentication required. Please sign in again.");
           }
           return;
         }
@@ -57,13 +61,16 @@ export function useAuthSession() {
             setBackendProfile(data.data.profile);
           } else if (!cancelled) {
             setBackendProfile(null);
+            setProfileError(data.error?.message || "Failed to fetch profile");
           }
         } else if (!cancelled) {
           setBackendProfile(null);
+          setProfileError("Failed to fetch profile. Please try again.");
         }
       } catch {
         if (!cancelled) {
           setBackendProfile(null);
+          setProfileError("Failed to connect to server. Please check your connection.");
         }
       } finally {
         if (!cancelled) {
@@ -84,6 +91,8 @@ export function useAuthSession() {
     user: (session?.user ?? null) as User | null,
     backendProfile,
     isPending: isPending || isProfileLoading,
+    isProfileLoading,
+    profileError,
     error,
     refetch: async () => {
       await refetch();
