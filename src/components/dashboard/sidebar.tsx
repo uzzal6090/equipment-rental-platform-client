@@ -13,6 +13,7 @@ import {
   Calendar,
   Sun,
   Moon,
+  Users,
 } from "lucide-react"
 
 interface SidebarItem {
@@ -124,6 +125,7 @@ const OWNER_ITEMS: SidebarItem[] = [
 ]
 
 const ADMIN_ITEMS: SidebarItem[] = [
+  { href: "/dashboard/admin/users", label: "All Users", icon: Users },
   { href: "/profile", label: "Profile", icon: User },
 ]
 
