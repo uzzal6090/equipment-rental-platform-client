@@ -37,7 +37,10 @@ function getDashboardLink(role: string | null): { href: string; label: string; i
     return { href: "/dashboard/owner", label: "Dashboard", icon: Building2 }
   }
   if (role === "admin") {
-    return { href: "/dashboard/admin/users", label: "Dashboard", icon: Building2 }
+    return { href: "/dashboard/admin", label: "Dashboard", icon: Building2 }
+  }
+  if (role === "customer") {
+    return { href: "/dashboard/customer", label: "Dashboard", icon: Building2 }
   }
   return null
 }
