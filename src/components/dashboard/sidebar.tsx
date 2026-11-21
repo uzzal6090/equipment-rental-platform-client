@@ -181,7 +181,7 @@ const OWNER_ITEMS: SidebarItem[] = [
   { href: "/dashboard/owner", label: "Dashboard", icon: LayoutDashboard },
   { href: "/profile", label: "My Profile", icon: User },
   { href: "/dashboard/owner/my-equipment", label: "My Equipment", icon: Package },
-  { href: "/rentals", label: "Rental Order", icon: Calendar },
+  { href: "/dashboard/owner/rentals", label: "Rental Order", icon: Calendar },
 ]
 
 const ADMIN_ITEMS: SidebarItem[] = [

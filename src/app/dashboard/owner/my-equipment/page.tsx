@@ -451,10 +451,10 @@ export default function MyEquipmentPage() {
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <div className="group/button inline-flex shrink-0 items-center justify-center rounded-lg text-foreground opacity-60 hover:bg-muted hover:opacity-100 transition-colors h-8 w-8" tabIndex={0} role="button" aria-label="Actions">
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Actions</span>
-                              </Button>
+                              </div>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => handleViewDetails(eq.id)}>

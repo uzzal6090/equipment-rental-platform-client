@@ -4,6 +4,7 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import Link from "next/link"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ProfileImageUpload } from "@/components/profile/profile-image-upload"
 import { apiRequest, getAuthToken } from "@/lib/api"
-import { User, Phone, MapPin, Save, Loader2, ShieldCheck, Building2, Truck } from "lucide-react"
+import { User, Phone, MapPin, Save, Loader2, ShieldCheck, Building2, Truck, ArrowLeft } from "lucide-react"
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
@@ -178,9 +179,18 @@ export default function ProfilePage() {
         <main className="flex-1 w-full max-w-5xl mx-auto py-12">
           <Card>
             <CardHeader className="pb-8">
-              <div className="flex items-center gap-2">
-                <User className="h-6 w-6 text-accent" />
-                <CardTitle className="text-2xl font-bold">My Profile</CardTitle>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <User className="h-6 w-6 text-accent" />
+                  <CardTitle className="text-2xl font-bold">My Profile</CardTitle>
+                </div>
+                <Link
+                  href={role === "admin" ? "/dashboard/admin" : role === "owner" ? "/dashboard/owner" : "/dashboard/customer"}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors shrink-0"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Dashboard
+                </Link>
               </div>
               <CardDescription>
                 Manage your personal information.

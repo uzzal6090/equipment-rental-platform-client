@@ -13,3 +13,16 @@ export function formatCurrency(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount)
 }
+
+export function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  } catch {
+    return dateString
+  }
+}
