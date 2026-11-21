@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { apiRequest, getAuthToken } from "@/lib/api"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
   TableHeader,
@@ -39,6 +40,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
+import { formatCurrency } from "@/lib/utils"
 import {
   Loader2,
   Package,
@@ -55,6 +58,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
+  ArrowLeft,
+  X,
 } from "lucide-react"
 
 type Equipment = {
@@ -141,23 +146,14 @@ function getStatusLabel(status: string): string {
 function getStatusColor(status: string): string {
   switch (status) {
     case "approved":
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 text-green-400"
     case "pending":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 text-yellow-400"
     case "rejected":
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 text-red-400"
     default:
       return "bg-muted text-muted-foreground"
   }
-}
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price)
 }
 
 function getRentalTypeLabel(type: string): string {
@@ -443,9 +439,11 @@ export default function AdminEquipmentPage() {
     })
   }
 
+  const hasActiveFilters = filters.search || filters.status || filters.category
+
   if (authPending) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
@@ -453,7 +451,7 @@ export default function AdminEquipmentPage() {
 
   if (backendProfile?.role !== "admin") {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
@@ -465,18 +463,28 @@ export default function AdminEquipmentPage() {
     )
   }
 
-  const hasActiveFilters = filters.search || filters.status || filters.category
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <Link
+          href="/dashboard/admin"
+          className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">All Equipment</h1>
           <p className="text-muted-foreground mt-1">
             View, approve, reject, and manage all equipment listings.
           </p>
         </div>
-        <form onSubmit={handleSearchSubmit} className="flex gap-2 w-full sm:w-auto">
+      </div>
+
+      <Separator />
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <form onSubmit={handleSearchSubmit} className="flex gap-2 w-full sm:max-w-xl">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -488,6 +496,52 @@ export default function AdminEquipmentPage() {
             />
           </div>
         </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Statuses</SelectItem>
+              {EQUIPMENT_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {getStatusLabel(status)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.category} onValueChange={(v) => handleFilterChange("category", v)}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Categories</SelectItem>
+              {ALLOWED_CATEGORIES.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.sort} onValueChange={(v) => handleFilterChange("sort", v)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {hasActiveFilters && (
+            <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -497,106 +551,31 @@ export default function AdminEquipmentPage() {
               <Package className="h-5 w-5 text-accent" />
               <CardTitle>Equipment Listings</CardTitle>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
-                  {EQUIPMENT_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {getStatusLabel(status)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.category} onValueChange={(v) => handleFilterChange("category", v)}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
-                  {ALLOWED_CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.sort} onValueChange={(v) => handleFilterChange("sort", v)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {hasActiveFilters && (
-                <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
-                  <XCircle className="h-4 w-4" />
-                  Clear
-                </Button>
-              )}
+            <div className="text-sm text-muted-foreground">
+              {pagination.total} equipment total · Page {pagination.page} of {pagination.totalPages || 1}
             </div>
           </div>
-          <CardDescription>
-            {pagination.total} equipment total · Page {pagination.page} of {pagination.totalPages || 1}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[120px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-12 w-12 rounded" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[40px]" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-[100px]" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-[100px]" /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <AdminEquipmentTableSkeleton />
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+              </div>
               <h3 className="text-lg font-medium text-foreground mb-2">Failed to load equipment</h3>
               <p className="text-muted-foreground mb-4 max-w-md">{error}</p>
-              <Button variant="outline" onClick={fetchEquipment} className="gap-2">
+              <Button onClick={fetchEquipment} variant="outline" className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 Retry
               </Button>
             </div>
           ) : equipment.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Package className="h-12 w-12 text-muted-foreground mb-4" />
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Package className="h-8 w-8 text-muted-foreground" />
+              </div>
               <h3 className="text-lg font-medium text-foreground mb-2">No equipment found</h3>
               <p className="text-muted-foreground">
                 {hasActiveFilters ? "Try adjusting your filters." : "There are no equipment listings in the system."}
@@ -608,14 +587,14 @@ export default function AdminEquipmentPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Image</TableHead>
+                      <TableHead className="w-16">Image</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Owner</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Location</TableHead>
-                      <TableHead>Qty</TableHead>
+                      <TableHead className="w-12 text-center">Qty</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-[120px]">Actions</TableHead>
                     </TableRow>
@@ -652,7 +631,7 @@ export default function AdminEquipmentPage() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            {formatPrice(eq.rentalPrice)}
+                            {formatCurrency(eq.rentalPrice)}
                           </div>
                         </TableCell>
                         <TableCell>{getRentalTypeLabel(eq.rentalType)}</TableCell>
@@ -980,6 +959,45 @@ export default function AdminEquipmentPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function AdminEquipmentTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-16"><Skeleton className="h-4 w-12" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-28" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+            <TableHead className="w-12 text-center"><Skeleton className="h-4 w-8" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+            <TableHead className="w-[120px]"><Skeleton className="h-4 w-20" /></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell><Skeleton className="h-12 w-12 rounded" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+              <TableCell className="text-center"><Skeleton className="h-4 w-[40px]" /></TableCell>
+              <TableCell><Skeleton className="h-6 w-[100px]" /></TableCell>
+              <TableCell><Skeleton className="h-8 w-[100px]" /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   )
 }

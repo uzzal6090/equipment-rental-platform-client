@@ -7,10 +7,80 @@ import { DashboardProfileProvider, useDashboardProfile } from "@/components/dash
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, RefreshCw, Package, Plus, Building2, ArrowRight } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw, Package, Plus, Building2, ArrowRight, DollarSign, Calendar, Clock } from "lucide-react"
 
 function OwnerDashboardContent() {
   const { backendProfile } = useDashboardProfile()
+  const [analytics, setAnalytics] = React.useState<{
+    totalListedEquipment: number
+    equipmentByStatus: { pending: number; approved: number; rejected: number }
+    completedRentals: number
+    totalEarnings: number
+    monthlyEarnings: Array<{ month: string; earnings: number }>
+    notes?: Record<string, string>
+  } | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    async function fetchAnalytics() {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const token = await (await import("@/lib/api")).getAuthToken()
+        if (!token) {
+          throw new Error("Authentication required")
+        }
+        const response = await (await import("@/lib/api")).apiRequest("/api/owner/analytics", { token })
+        const data = await response.json()
+        if (!response.ok || !data.success) {
+          throw new Error(data.error?.message || "Failed to fetch analytics")
+        }
+        setAnalytics(data.data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load analytics")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="text-muted-foreground">Loading analytics...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+        <div className="text-center max-w-md mx-4">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">Unable to Load Analytics</h1>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Refresh
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
 
   return (
     <div className="space-y-6">
@@ -19,8 +89,74 @@ function OwnerDashboardContent() {
           Welcome back, {backendProfile?.name || "Owner"}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Manage your equipment listings and rental business.
+          Overview of your equipment rental business.
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="group hover:border-accent/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Listed Equipment
+            </CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.totalListedEquipment ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              All statuses
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="group hover:border-accent/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Completed Rentals
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-500">{analytics?.completedRentals ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {analytics?.notes?.completedRentals || "Booking data unavailable"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="group hover:border-accent/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Earnings
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-500">
+              {formatCurrency(analytics?.totalEarnings ?? 0)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {analytics?.notes?.totalEarnings || "Payment data unavailable"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="group hover:border-accent/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pending Approvals
+            </CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-500">
+              {analytics?.equipmentByStatus?.pending ?? 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Awaiting admin review
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -76,7 +212,7 @@ function OwnerDashboardContent() {
               <div className="p-2 bg-accent/10 rounded-lg text-accent">
                 <Building2 className="h-5 w-5" />
               </div>
-              <CardTitle className="text-lg">Rental Orders</CardTitle>
+              <CardTitle className="text-lg">My Equipment Rental</CardTitle>
             </div>
             <CardDescription>
               Manage incoming rental requests and track your rental orders.
@@ -87,7 +223,7 @@ function OwnerDashboardContent() {
               href="/rentals"
               className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors group"
             >
-              View orders
+              View rentals
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </CardContent>
@@ -96,33 +232,41 @@ function OwnerDashboardContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Quick Stats</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Equipment Status Breakdown</CardTitle>
+          </div>
           <CardDescription>
-            Overview of your equipment portfolio
+            Breakdown of your equipment by approval status
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-2xl font-bold text-foreground">0</p>
-              <p className="text-xs text-muted-foreground">Total Listings</p>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              <div className="text-3xl font-bold text-yellow-500">
+                {analytics?.equipmentByStatus?.pending ?? 0}
+              </div>
+              <div className="text-sm text-muted-foreground">Pending</div>
             </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-2xl font-bold text-yellow-500">0</p>
-              <p className="text-xs text-muted-foreground">Pending Approval</p>
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              <div className="text-3xl font-bold text-green-500">
+                {analytics?.equipmentByStatus?.approved ?? 0}
+              </div>
+              <div className="text-sm text-muted-foreground">Approved</div>
             </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-2xl font-bold text-green-500">0</p>
-              <p className="text-xs text-muted-foreground">Approved</p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-2xl font-bold text-red-500">0</p>
-              <p className="text-xs text-muted-foreground">Rejected</p>
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              <div className="text-3xl font-bold text-red-500">
+                {analytics?.equipmentByStatus?.rejected ?? 0}
+              </div>
+              <div className="text-sm text-muted-foreground">Rejected</div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-4 text-center">
-            My Equipment page coming in Phase 3B
-          </p>
+          {analytics?.notes && (
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                <strong>Note:</strong> {analytics.notes.completedRentals} | {analytics.notes.totalEarnings} | {analytics.notes.monthlyEarnings}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

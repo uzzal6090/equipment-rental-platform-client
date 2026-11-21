@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/nav/navbar";
@@ -35,7 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col pt-16">
         <Providers>
-          <Navbar />
+          <Suspense fallback={<div className="h-16" />}>
+            <Navbar />
+          </Suspense>
           {children}
         </Providers>
       </body>

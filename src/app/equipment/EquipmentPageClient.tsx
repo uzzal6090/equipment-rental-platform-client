@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { apiRequest } from "@/lib/api"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +12,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
 import {
   Search,
   X,
@@ -20,7 +23,9 @@ import {
   RefreshCw,
   MapPin,
   Tag,
-  Home,
+  ArrowLeft,
+  Filter,
+  Loader2,
 } from "lucide-react"
 
 interface EquipmentItem {
@@ -88,12 +93,26 @@ interface EquipmentPageClientProps {
   initialSearchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
+function getDashboardRoute(role: string | null | undefined): string {
+  switch (role) {
+    case "admin":
+      return "/dashboard/admin"
+    case "owner":
+      return "/dashboard/owner"
+    case "customer":
+      return "/dashboard/customer"
+    default:
+      return "/dashboard/customer"
+  }
+}
+
 export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClientProps) {
-  const { session } = useAuthSession()
+  const { session, backendProfile, isPending } = useAuthSession()
   const router = useRouter()
 
   const [equipment, setEquipment] = useState<EquipmentItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
@@ -105,18 +124,17 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
   })
 
   const [search, setSearch] = useState("")
+  const [searchDebounced, setSearchDebounced] = useState("")
   const [category, setCategory] = useState("")
   const [rentalType, setRentalType] = useState("")
   const [priceRange, setPriceRange] = useState("")
   const [availability, setAvailability] = useState("")
   const [sort, setSort] = useState("newest")
 
-  // Track if initial mount + fetch is complete to prevent duplicate initial fetches
   const initialFetchDone = useRef(false)
-  // Track ongoing fetch to prevent race conditions
   const isFetchingRef = useRef(false)
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Build query string from current filter state
   const buildQueryString = useCallback((overrides: Partial<{
     search: string
     category: string
@@ -127,7 +145,7 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
     page: number
   }> = {}) => {
     const params = new URLSearchParams()
-    const s = overrides.search ?? search
+    const s = overrides.search ?? searchDebounced
     const c = overrides.category ?? category
     const rt = overrides.rentalType ?? rentalType
     const pr = overrides.priceRange ?? priceRange
@@ -150,15 +168,17 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
     if (p > 1) params.set("page", String(p))
     params.set("limit", String(pagination.limit))
     return params.toString()
-  }, [search, category, rentalType, priceRange, availability, sort, pagination.page, pagination.limit])
+  }, [searchDebounced, category, rentalType, priceRange, availability, sort, pagination.page, pagination.limit])
 
-  // Fetch equipment - takes query string directly, no internal buildQueryString call
-  const fetchEquipment = useCallback(async (queryString: string) => {
-    // Prevent concurrent fetches (race condition protection)
+  const fetchEquipment = useCallback(async (queryString: string, isInitial = false) => {
     if (isFetchingRef.current) return
     isFetchingRef.current = true
 
-    setLoading(true)
+    if (isInitial) {
+      setInitialLoading(true)
+    } else {
+      setIsSearching(true)
+    }
     setError(null)
     try {
       const response = await apiRequest(`/api/equipment?${queryString}`)
@@ -167,22 +187,20 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
       }
       const data: EquipmentApiResponse = await response.json()
       setEquipment(data.data?.equipment ?? [])
-      // Update pagination without triggering re-fetch (no pagination dependency in this callback)
       setPagination(prev => ({ ...prev, ...data.data?.pagination }))
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred")
     } finally {
-      setLoading(false)
+      setIsSearching(false)
+      setInitialLoading(false)
       isFetchingRef.current = false
     }
-  }, []) // No dependencies - query string passed explicitly by callers
+  }, [])
 
-  // Initialize filters from URL search params AND perform initial fetch in a single effect
   useEffect(() => {
     let cancelled = false
 
     async function initializeAndFetch() {
-      // Parse URL parameters first
       const params = await initialSearchParams
 
       const initialSearch = params.search ? (Array.isArray(params.search) ? params.search[0] : params.search) : ""
@@ -193,9 +211,9 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
       const initialSort = params.sort ? (Array.isArray(params.sort) ? params.sort[0] : params.sort) : "newest"
       const initialPage = params.page ? parseInt(Array.isArray(params.page) ? params.page[0] : params.page, 10) : 1
 
-      // Apply all initial states at once
       if (!cancelled) {
         setSearch(initialSearch)
+        setSearchDebounced(initialSearch)
         setCategory(initialCategory)
         setRentalType(initialRentalType)
         setPriceRange(initialPriceRange)
@@ -206,19 +224,14 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
         }
       }
 
-      // Wait for state updates to be processed, then fetch
       if (!cancelled) {
-        // Use a microtask to let React process the batched state updates
         await Promise.resolve()
 
-        // Guard against duplicate initial fetch (e.g., Strict Mode double-invoke)
         if (initialFetchDone.current) return
         initialFetchDone.current = true
 
-        setLoading(true)
         setError(null)
         try {
-          // Build query string directly from initial params (avoids buildQueryString dependency)
           const initialParams = new URLSearchParams()
           if (initialSearch) initialParams.set("search", initialSearch)
           if (initialCategory) initialParams.set("category", initialCategory)
@@ -235,22 +248,10 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
           if (initialPage > 1) initialParams.set("page", String(initialPage))
           initialParams.set("limit", String(pagination.limit))
 
-          const response = await apiRequest(`/api/equipment?${initialParams.toString()}`)
-          if (!response.ok) {
-            throw new Error(`Failed to fetch equipment: ${response.status}`)
-          }
-          const data: EquipmentApiResponse = await response.json()
-          if (!cancelled) {
-            setEquipment(data.data?.equipment ?? [])
-            setPagination(prev => ({ ...prev, ...data.data?.pagination }))
-          }
+          await fetchEquipment(initialParams.toString(), true)
         } catch (err) {
           if (!cancelled) {
             setError(err instanceof Error ? err.message : "An unknown error occurred")
-          }
-        } finally {
-          if (!cancelled) {
-            setLoading(false)
           }
         }
       }
@@ -263,19 +264,39 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
     }
   }, [initialSearchParams, pagination.limit])
 
-  // Sync URL with filters (without triggering fetch)
+  // Debounce search input to avoid excessive API calls and URL updates
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchDebounced(search)
+    }, 300)
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [search])
+
+  // Sync URL with debounced search and other filters
   useEffect(() => {
     const urlParams = new URLSearchParams()
-    if (search) urlParams.set("search", search)
+    if (searchDebounced) urlParams.set("search", searchDebounced)
     if (category) urlParams.set("category", category)
     if (rentalType) urlParams.set("rentalType", rentalType)
     if (priceRange) urlParams.set("priceRange", priceRange)
     if (availability) urlParams.set("availability", availability)
     if (sort !== "newest") urlParams.set("sort", sort)
-    // Don't add page=1 to URL
     const newUrl = `/equipment${urlParams.toString() ? `?${urlParams.toString()}` : ""}`
     window.history.replaceState({}, "", newUrl)
-  }, [search, category, rentalType, priceRange, availability, sort, pagination.limit])
+  }, [searchDebounced, category, rentalType, priceRange, availability, sort, pagination.limit])
+
+  // Trigger search API call when debounced search or other filters change
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchEquipment calls setState for data fetching, which is expected in effects
+    fetchEquipment(buildQueryString({ search: searchDebounced, page: 1 }))
+  }, [searchDebounced, category, rentalType, priceRange, availability, sort, fetchEquipment, buildQueryString])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -284,7 +305,7 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
 
   const handleFilterChange = (filter: FilterKey, value: string) => {
     const setters: Record<FilterKey, (value: string) => void> = {
-      search: setSearch,
+      search: (v) => { setSearch(v); setSearchDebounced(v); },
       category: setCategory,
       rentalType: setRentalType,
       priceRange: setPriceRange,
@@ -297,6 +318,7 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
 
   const handleClearFilters = () => {
     setSearch("")
+    setSearchDebounced("")
     setCategory("")
     setRentalType("")
     setPriceRange("")
@@ -325,9 +347,26 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
     router.push(`/equipment/${id}`)
   }
 
-  const hasActiveFilters = Boolean(search || category || rentalType || priceRange || availability || sort !== "newest")
+  const hasActiveFilters = Boolean(category || rentalType || priceRange || availability || sort !== "newest")
+  const dashboardRoute = getDashboardRoute(backendProfile?.role)
+  const showBackButton = !!backendProfile?.role
 
-  if (loading) {
+  if (isPending) {
+    return (
+      <div className="min-h-screen bg-background py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+              <p className="text-muted-foreground">Loading session...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (initialLoading) {
     return (
       <div className="min-h-screen bg-background py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -364,9 +403,15 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
             hasActiveFilters={hasActiveFilters}
             onClearFilters={handleClearFilters}
             resultCount={pagination.total}
+            dashboardRoute={dashboardRoute}
+            showBackButton={showBackButton}
           />
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="text-muted-foreground mb-4">{error}</div>
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <RefreshCw className="h-8 w-8 text-destructive" />
+            </div>
+            <h3 className="text-xl font-semibold text-foreground mb-2">Unable to Load Equipment</h3>
+            <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
             <Button onClick={handleRetry} variant="outline" className="gap-2">
               <RefreshCw className="h-4 w-4" />
               Retry
@@ -398,10 +443,14 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
             hasActiveFilters={hasActiveFilters}
             onClearFilters={handleClearFilters}
             resultCount={pagination.total}
+            dashboardRoute={dashboardRoute}
+            showBackButton={showBackButton}
           />
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Home className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">No equipment found</h3>
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+              <Tag className="h-10 w-10 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-2">No equipment found</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
               {hasActiveFilters
                 ? "Try adjusting your search or filters to find what you're looking for."
@@ -439,18 +488,28 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
           hasActiveFilters={hasActiveFilters}
           onClearFilters={handleClearFilters}
           resultCount={pagination.total}
+          dashboardRoute={dashboardRoute}
+          showBackButton={showBackButton}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {equipment.map((item, index) => (
-            <EquipmentCard
-              key={item.id}
-              item={item}
-              onViewDetails={handleViewDetails}
-              index={index}
-            />
-          ))}
-        </div>
+        {isSearching ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+            {[...Array(12)].map((_, i) => (
+              <EquipmentCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+            {equipment.map((item, index) => (
+              <EquipmentCard
+                key={item.id}
+                item={item}
+                onViewDetails={handleViewDetails}
+                index={index}
+              />
+            ))}
+          </div>
+        )}
 
         {pagination.totalPages > 1 && (
           <Pagination
@@ -483,6 +542,8 @@ function EquipmentHeader({
   hasActiveFilters,
   onClearFilters,
   resultCount,
+  dashboardRoute,
+  showBackButton,
 }: {
   search: string
   onSearchChange: (value: string) => void
@@ -500,33 +561,50 @@ function EquipmentHeader({
   hasActiveFilters: boolean
   onClearFilters: () => void
   resultCount: number
+  dashboardRoute: string
+  showBackButton: boolean
 }) {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">All Equipment</h1>
-          <p className="text-muted-foreground mt-1">
-            {resultCount} {resultCount === 1 ? "item" : "items"} found
-          </p>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between w-full">
+          {showBackButton && (
+            <Link
+              href={dashboardRoute}
+              className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">All Equipment</h1>
+            <p className="text-muted-foreground mt-1">
+              {resultCount} {resultCount === 1 ? "item" : "items"} found
+            </p>
+          </div>
+          {hasActiveFilters && (
+            <Button variant="ghost" onClick={onClearFilters} className="gap-2 shrink-0 sm:ms-auto">
+              <X className="h-4 w-4" />
+              Clear Filters
+            </Button>
+          )}
         </div>
-        {hasActiveFilters && (
-          <Button variant="ghost" onClick={onClearFilters} className="gap-2 sm:ml-auto">
-            <X className="h-4 w-4" />
-            Clear Filters
-          </Button>
-        )}
       </div>
 
-      <form onSubmit={onSearch} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div className="relative flex-1 sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Separator />
+
+      <form onSubmit={onSearch} className="space-y-4 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto_auto] sm:gap-3 sm:items-end">
+        <div className="relative min-w-0">
+          <label htmlFor="equipment-search" className="sr-only">Search equipment</label>
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" aria-hidden="true" />
           <Input
+            id="equipment-search"
             type="search"
             placeholder="Search by name, location, or category..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10"
+            className="h-12 pl-12 pr-4 text-base"
             autoComplete="off"
           />
         </div>
@@ -534,7 +612,7 @@ function EquipmentHeader({
         <div className="w-full sm:w-48">
           <label htmlFor="category" className="sr-only">Category</label>
           <Select value={category} onValueChange={(v) => onCategoryChange("category", v ?? "")}>
-            <SelectTrigger id="category">
+            <SelectTrigger id="category" className="h-12">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
@@ -552,7 +630,7 @@ function EquipmentHeader({
         <div className="w-full sm:w-48">
           <label htmlFor="rentalType" className="sr-only">Rental Type</label>
           <Select value={rentalType} onValueChange={(v) => onRentalTypeChange("rentalType", v ?? "")}>
-            <SelectTrigger id="rentalType">
+            <SelectTrigger id="rentalType" className="h-12">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -568,7 +646,7 @@ function EquipmentHeader({
         <div className="w-full sm:w-56">
           <label htmlFor="priceRange" className="sr-only">Price Range</label>
           <Select value={priceRange} onValueChange={(v) => onPriceRangeChange("priceRange", v ?? "")}>
-            <SelectTrigger id="priceRange">
+            <SelectTrigger id="priceRange" className="h-12">
               <SelectValue placeholder="Any Price" />
             </SelectTrigger>
             <SelectContent>
@@ -584,7 +662,7 @@ function EquipmentHeader({
         <div className="w-full sm:w-48">
           <label htmlFor="availability" className="sr-only">Availability</label>
           <Select value={availability} onValueChange={(v) => onAvailabilityChange("availability", v ?? "")}>
-            <SelectTrigger id="availability">
+            <SelectTrigger id="availability" className="h-12">
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
@@ -600,7 +678,7 @@ function EquipmentHeader({
         <div className="w-full sm:w-56">
           <label htmlFor="sort" className="sr-only">Sort By</label>
           <Select value={sort} onValueChange={(v) => onSortChange("sort", v ?? "")}>
-            <SelectTrigger id="sort">
+            <SelectTrigger id="sort" className="h-12">
               <SelectValue placeholder="Sort By" />
             </SelectTrigger>
             <SelectContent>
@@ -615,10 +693,8 @@ function EquipmentHeader({
       </form>
 
       {hasActiveFilters && (
-        <div className="flex flex-wrap gap-2">
-          {search && (
-            <FilterChip label={`Search: "${search}"`} onRemove={() => onSearchChange("")} />
-          )}
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           {category && (
             <FilterChip label={`Category: ${category}`} onRemove={() => onCategoryChange("category", "")} />
           )}
@@ -642,10 +718,10 @@ function EquipmentHeader({
 
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-sm rounded-full">
+    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-full border border-primary/20">
       {label}
-      <button type="button" onClick={onRemove} className="hover:text-primary/70 transition-colors">
-        <X className="h-3 w-3" />
+      <button type="button" onClick={onRemove} className="hover:text-primary/70 transition-colors" aria-label={`Remove ${label} filter`}>
+        <X className="h-3.5 w-3.5" />
       </button>
     </span>
   )
@@ -660,6 +736,8 @@ function EquipmentCard({
   onViewDetails: (id: string) => void
   index: number
 }) {
+  const isAvailable = item.availableQuantity > 0 && item.status === "approved"
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -667,7 +745,7 @@ function EquipmentCard({
       transition={{ duration: 0.4, delay: index * 0.05 }}
       whileHover={{ y: -4 }}
     >
-      <Card className="h-full flex flex-col overflow-hidden">
+      <Card className="h-full flex flex-col overflow-hidden group">
         <CardHeader className="flex flex-col gap-2 p-4 pt-4 pb-2">
           <div
             className={cn(
@@ -679,7 +757,7 @@ function EquipmentCard({
               <Image
                 src={item.image}
                 alt={item.name}
-                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 onError={(e) => {
@@ -692,11 +770,19 @@ function EquipmentCard({
                 No image available
               </div>
             )}
-            <div className="absolute top-3 right-3 flex gap-1">
-              <span className="px-2 py-1 text-xs font-medium bg-background/90 backdrop-blur rounded-full text-foreground">
+            <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute top-3 right-3 flex flex-col gap-1">
+              <span className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded-full backdrop-blur-sm",
+                item.status === "approved"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 text-green-400"
+                  : item.status === "pending"
+                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 text-yellow-400"
+                  : "bg-red-100 text-red-800 dark:bg-red-900/30 text-red-400"
+              )}>
                 {item.status}
               </span>
-              <span className="px-2 py-1 text-xs font-medium bg-background/90 backdrop-blur rounded-full text-muted-foreground">
+              <span className="px-2.5 py-1 text-xs font-medium bg-background/90 backdrop-blur rounded-full text-muted-foreground">
                 {item.rentalType}
               </span>
             </div>
@@ -715,22 +801,25 @@ function EquipmentCard({
           </div>
           <div className="mt-4 flex justify-between items-baseline">
             <span className="text-xl font-bold text-foreground">
-              ${item.rentalPrice}
+              {formatCurrency(item.rentalPrice)}
             </span>
-            <span className="text-sm text-muted-foreground">
-              {item.availableQuantity > 0
+            <span className={cn(
+              "text-sm font-medium",
+              isAvailable ? "text-green-600 dark:text-green-400" : "text-destructive"
+            )}>
+              {isAvailable
                 ? `Available: ${item.availableQuantity}`
                 : "Unavailable"}
             </span>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0">
+        <CardFooter className="p-4 pt-0 border-t border-border/50">
           <Button
             onClick={() => onViewDetails(item.id)}
             className="w-full"
-            disabled={item.availableQuantity === 0}
+            disabled={!isAvailable}
           >
-            {item.availableQuantity === 0 ? "Unavailable" : "View Details"}
+            {isAvailable ? "View Details" : "Unavailable"}
           </Button>
         </CardFooter>
       </Card>
@@ -766,47 +855,48 @@ function EquipmentCardSkeleton() {
 
 function EquipmentHeaderSkeleton() {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-2">
           <div className="h-8 w-48 bg-muted rounded animate-pulse" />
           <div className="h-5 w-32 bg-muted rounded animate-pulse mt-1" />
         </div>
       </div>
-      <form className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div className="relative flex-1 sm:w-96">
-          <div className="h-10 w-full bg-muted rounded animate-pulse" />
+      <Separator className="animate-pulse" />
+      <div className="space-y-4 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto_auto] sm:gap-3 sm:items-end">
+        <div className="relative min-w-0">
+          <div className="h-12 w-full bg-muted rounded-xl animate-pulse" />
         </div>
         <div className="w-full sm:w-48">
-          <div className="h-10 w-full bg-muted rounded animate-pulse" />
+          <div className="h-12 w-full bg-muted rounded-xl animate-pulse" />
         </div>
         <div className="w-full sm:w-48">
-          <div className="h-10 w-full bg-muted rounded animate-pulse" />
+          <div className="h-12 w-full bg-muted rounded-xl animate-pulse" />
         </div>
         <div className="w-full sm:w-56">
-          <div className="h-10 w-full bg-muted rounded animate-pulse" />
+          <div className="h-12 w-full bg-muted rounded-xl animate-pulse" />
         </div>
         <div className="w-full sm:w-48">
-          <div className="h-10 w-full bg-muted rounded animate-pulse" />
+          <div className="h-12 w-full bg-muted rounded-xl animate-pulse" />
         </div>
         <div className="w-full sm:w-56">
-          <div className="h-10 w-full bg-muted rounded animate-pulse" />
+          <div className="h-12 w-full bg-muted rounded-xl animate-pulse" />
         </div>
-      </form>
+      </div>
     </div>
   )
 }
 
 function PaginationSkeleton() {
   return (
-    <div className="flex items-center justify-center gap-2 mt-8">
-      <div className="h-10 w-10 bg-muted rounded animate-pulse" />
-      <div className="h-10 w-10 bg-muted rounded animate-pulse" />
-      <div className="h-10 w-10 bg-muted rounded animate-pulse" />
-      <span className="px-2 text-muted-foreground animate-pulse">...</span>
-      <div className="h-10 w-10 bg-muted rounded animate-pulse" />
-      <div className="h-10 w-10 bg-muted rounded animate-pulse" />
-      <div className="h-10 w-10 bg-muted rounded animate-pulse" />
+    <div className="flex items-center justify-center gap-1 mt-8 animate-pulse">
+      <div className="h-10 w-10 bg-muted rounded" />
+      <div className="h-10 w-10 bg-muted rounded" />
+      <div className="h-10 w-10 bg-muted rounded" />
+      <span className="px-2 text-muted-foreground">...</span>
+      <div className="h-10 w-10 bg-muted rounded" />
+      <div className="h-10 w-10 bg-muted rounded" />
+      <div className="h-10 w-10 bg-muted rounded" />
     </div>
   )
 }
@@ -837,7 +927,7 @@ function Pagination({
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      {pages.map((page, index) => (
+      {pages.map((page, index) =>
         page === "ellipsis" ? (
           <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">
             ...
@@ -854,7 +944,7 @@ function Pagination({
             {page}
           </Button>
         )
-      ))}
+      )}
       <Button
         variant="outline"
         size="icon"
