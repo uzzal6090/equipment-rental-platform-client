@@ -56,6 +56,11 @@ type Equipment = {
   featured: boolean
   createdAt: string
   updatedAt: string
+  description?: string
+  rentalTerms?: string
+  condition?: string
+  brand?: string
+  model?: string
 }
 
 type Pagination = {
@@ -207,7 +212,7 @@ export default function MyEquipmentPage() {
     }
   }
 
-  function openEditDialog(eq: Equipment) {
+  async function openEditDialog(eq: Equipment) {
     setEditingEquipment(eq)
     setEditFormData({
       name: eq.name,
@@ -225,6 +230,27 @@ export default function MyEquipmentPage() {
     })
     setEditErrors({})
     setEditDialogOpen(true)
+
+    // Fetch full equipment details to populate all editable fields
+    try {
+      const token = await getAuthToken()
+      if (!token) return
+      const response = await apiRequest(`/api/equipment/${eq.id}`, { token })
+      const data: ApiResponse<{ equipment: Equipment & { description?: string; rentalTerms?: string; condition?: string; brand?: string; model?: string } }> = await response.json()
+      if (response.ok && data.success && data.data?.equipment) {
+        const fullEq = data.data.equipment
+        setEditFormData((prev) => ({
+          ...prev,
+          description: fullEq.description ?? "",
+          rentalTerms: fullEq.rentalTerms ?? "",
+          condition: fullEq.condition ?? "good",
+          brand: fullEq.brand ?? "",
+          model: fullEq.model ?? "",
+        }))
+      }
+    } catch {
+      // Silently fail - form will use defaults for missing fields
+    }
   }
 
   function handleEditInputChange(field: string, value: string | number | boolean | null) {

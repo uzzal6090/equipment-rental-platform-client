@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { AlertCircle, MapPin, Calendar, ArrowLeft, Building2, User, Shield, Truck, Package, HardHat, Heart, HeartOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { CalendarDays } from "lucide-react"
 
 interface FavoriteItem {
   id: string
@@ -84,6 +92,141 @@ function EquipmentDetailsPage(props: { params: Promise<{ id: string }> }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [isBooking, setIsBooking] = useState(false)
+  const [calculatedAmount, setCalculatedAmount] = useState<number | null>(null)
+
+  const bookingSchema = z.object({
+    startDate: z.string({ message: "Start date is required" }).refine(
+      val => {
+        if (!val) return false
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return false
+        const parts = val.split("-")
+        const year = Number(parts[0])
+        const month = Number(parts[1])
+        const day = Number(parts[2])
+        const selected = new Date(year, month - 1, day)
+        if (
+          selected.getFullYear() !== year ||
+          selected.getMonth() !== month - 1 ||
+          selected.getDate() !== day
+        ) {
+          return false
+        }
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        selected.setHours(0, 0, 0, 0)
+        return selected >= today
+      },
+      { message: "Start date cannot be in the past" }
+    ),
+    endDate: z.string({ message: "End date is required" }),
+    quantity: z.string({ message: "Quantity is required" }).refine(
+      val => {
+        const num = Number(val)
+        if (isNaN(num) || !Number.isInteger(num) || num < 1) return false
+        if (equipment && num > equipment.availableQuantity) return false
+        return true
+      },
+      { message: "Quantity exceeds available quantity" }
+    ),
+    contactPhone: z.string({ message: "Contact number is required" }).min(1, { message: "Contact number is required" }),
+    deliveryAddress: z.string({ message: "Delivery address is required" }).min(1, { message: "Delivery address is required" }),
+    notes: z.string().optional(),
+  })
+
+  const form = useForm<z.infer<typeof bookingSchema>>({
+    resolver: zodResolver(bookingSchema),
+  })
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = form
+
+  const startDate = form.watch("startDate", "")
+  const endDate = form.watch("endDate", "")
+  const quantity = form.watch("quantity", "1")
+
+  useEffect(() => {
+    if (equipment && startDate && endDate && quantity) {
+      setCalculatedAmount(calculateRentalAmount(startDate, endDate, Number(quantity)))
+    } else {
+      setCalculatedAmount(null)
+    }
+  }, [equipment, startDate, endDate, quantity])
+
+  function calculateRentalAmount(startDateValue: string, endDateValue: string, qty: string | number): number {
+    if (!equipment) return 0
+    const qtyNum = Number(qty)
+    const start = new Date(startDateValue)
+    const end = new Date(endDateValue)
+    const diffTime = end.getTime() - start.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 1) return 0
+
+    let rentalDays = diffDays
+    switch (equipment.rentalType) {
+      case "weekly":
+        rentalDays = Math.ceil(diffDays / 7)
+        break
+      case "monthly":
+        rentalDays = Math.ceil(diffDays / 30)
+        break
+      default:
+        break
+    }
+
+    return equipment.rentalPrice * rentalDays * qtyNum
+  }
+
+  const onBookingSubmit = async (data: z.infer<typeof bookingSchema>) => {
+    if (!equipment) return
+
+    setIsBooking(true)
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        toast.error("Authentication required. Please sign in.")
+        return
+      }
+
+      const response = await apiRequest("/api/bookings", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          equipmentId: equipment.id,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          quantity: Number(data.quantity),
+          contactPhone: data.contactPhone,
+          deliveryAddress: data.deliveryAddress,
+          notes: data.notes || "",
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        toast.error(result.error?.message || "Failed to create booking")
+        return
+      }
+
+      if (!result.data?.checkoutUrl) {
+        toast.error("Failed to retrieve checkout URL from server")
+        return
+      }
+
+      setIsBookingModalOpen(false)
+      window.location.href = result.data.checkoutUrl
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create booking")
+    } finally {
+      setIsBooking(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -420,17 +563,129 @@ function EquipmentDetailsPage(props: { params: Promise<{ id: string }> }) {
                 {equipment.isFavorited ? "Remove from Favorites" : "Add to Favorites"}
               </Button>
             )}
-            <Button disabled className="opacity-50 cursor-not-allowed">
+            <Button onClick={() => setIsBookingModalOpen(true)} disabled={isBooking || !backendProfile}>
               Book Now
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
             {backendProfile?.role === "customer" && equipment.status === "approved"
-              ? "Click to add or remove from your favorites."
-              : "Favorites are only available for customers on approved equipment. Booking is coming soon."}
+              ? "Select dates and quantity to book this equipment."
+              : "Favorites and booking are only available for customers on approved equipment."}
           </p>
         </div>
       </div>
+
+      <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Book Equipment</DialogTitle>
+            <DialogDescription>
+              Select your rental dates and details for {equipment?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onBookingSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Rental Start Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                {...register("startDate")}
+                required
+                min={new Date().toISOString().split("T")[0]}
+                disabled={isBooking}
+              />
+              {errors.startDate && (
+                <p className="text-xs text-destructive">{errors.startDate.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endDate">Rental End Date</Label>
+              <Input
+                id="endDate"
+                type="date"
+                {...register("endDate")}
+                required
+                disabled={isBooking}
+              />
+              {errors.endDate && (
+                <p className="text-xs text-destructive">{errors.endDate.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Required Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                {...register("quantity")}
+                required
+                disabled={isBooking}
+              />
+              {errors.quantity && (
+                <p className="text-xs text-destructive">{errors.quantity.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contactPhone">Contact Number</Label>
+              <Input
+                id="contactPhone"
+                type="tel"
+                {...register("contactPhone")}
+                required
+                disabled={isBooking}
+              />
+              {errors.contactPhone && (
+                <p className="text-xs text-destructive">{errors.contactPhone.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="deliveryAddress">Delivery Address</Label>
+              <Input
+                id="deliveryAddress"
+                type="text"
+                {...register("deliveryAddress")}
+                required
+                disabled={isBooking}
+              />
+              {errors.deliveryAddress && (
+                <p className="text-xs text-destructive">{errors.deliveryAddress.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                {...register("notes")}
+                rows={3}
+                disabled={isBooking}
+                placeholder="Any special instructions for the owner..."
+              />
+            </div>
+
+            {calculatedAmount !== null && (
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Estimated Total</p>
+                <p className="font-bold">{formatCurrency(calculatedAmount)}</p>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsBookingModalOpen(false)} disabled={isBooking}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isBooking || !equipment}>
+                {isBooking ? "Processing..." : "Proceed to Stripe Checkout"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

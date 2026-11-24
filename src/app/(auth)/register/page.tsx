@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { AuthLayout, AuthTwoColumn, AuthHeader, BrandVisual } from "@/components/auth/auth-layout"
+import { AuthCentered, AuthCenteredCard, AuthBrand } from "@/components/auth/auth-layout"
 import { PasswordInput } from "@/components/auth/password-input"
 import { GoogleSignInButton } from "@/components/auth/google-signin-button"
 import { authClient } from "@/lib/auth-client"
@@ -71,23 +71,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout>
-      <AuthTwoColumn
+    <AuthCentered>
+      <AuthCenteredCard
         brand={
-          <BrandVisual
-            title="Create your account"
-            subtitle="Join the equipment rental platform to start renting equipment and managing your bookings."
-          />
+          <AuthBrand heading="Create Account" />
         }
         form={
           <Card className="w-full">
-            <CardHeader className="pb-6">
-              <AuthHeader
-                title="Sign up"
-                description="Enter your details below to create your account."
-              />
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -140,9 +131,9 @@ export default function RegisterPage() {
                   </p>
                   <PasswordInput
                     id="password"
-                    label="Password"
                     autoComplete="new-password"
                     error={form.formState.errors.password?.message}
+                    placeholder="Enter your password"
                     {...form.register("password")}
                     disabled={isSubmitting}
                   />
@@ -157,10 +148,10 @@ export default function RegisterPage() {
                 </Button>
               </form>
             </CardContent>
-            <CardFooter className="pt-6">
-              <Separator orientation="horizontal" className="my-4" />
-              <div className="flex items-center justify-center w-full">
-                <GoogleSignInButton className="w-full md:w-[260px]" />
+            <CardFooter className="pt-6 flex flex-col w-full">
+              <Separator orientation="horizontal" className="my-4 w-full" />
+              <div className="w-full">
+                <GoogleSignInButton className="w-full" />
               </div>
               <p className="text-sm text-muted-foreground text-center">
                 Already have an account?{" "}
@@ -172,6 +163,6 @@ export default function RegisterPage() {
           </Card>
         }
       />
-    </AuthLayout>
+    </AuthCentered>
   )
 }

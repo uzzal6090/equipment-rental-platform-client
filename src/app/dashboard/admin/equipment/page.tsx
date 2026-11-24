@@ -649,12 +649,19 @@ export default function AdminEquipmentPage() {
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
-                            <DropdownMenuTrigger>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
+                            <DropdownMenuTrigger
+                              render={(props, state) => (
+                                <Button
+                                  {...props}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Actions</span>
+                                </Button>
+                              )}
+                            />
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className={eq.status !== "pending" ? "opacity-50 pointer-events-none" : ""}

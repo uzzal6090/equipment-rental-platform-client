@@ -29,7 +29,6 @@ const NAV_LINKS = [
   { href: "/#about", label: "About", icon: Building2 },
   { href: "/#contact", label: "Contact", icon: DollarSign },
   { href: "/#how-it-works", label: "How It Works", icon: Truck },
-  { href: "/rentals", label: "My Rentals", icon: DollarSign },
 ]
 
 function getDashboardLink(role: string | null): { href: string; label: string; icon: React.ElementType } | null {

@@ -4,9 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, RefreshCw, Users, Package, Calendar, TrendingUp, DollarSign, Clock, Building2, ArrowRight } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw, Users, Package, Calendar, DollarSign, Clock, Building2, ArrowRight, TrendingUp as TrendingUpIcon } from "lucide-react"
+import { MonthlyBookingChart } from "@/components/dashboard/MonthlyBookingChart"
 
 function AdminDashboardContent({ analytics }: { analytics: {
   totalUsers: number
@@ -27,238 +26,240 @@ function AdminDashboardContent({ analytics }: { analytics: {
     maximumFractionDigits: 0,
   }).format(amount)
 
+  const metrics = [
+    {
+      title: "Total Users",
+      value: formatNumber(analytics?.totalUsers ?? 0),
+      icon: Users,
+      iconBg: "bg-blue-100 dark:bg-blue-900/30",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      description: "Registered users",
+    },
+    {
+      title: "Total Equipment",
+      value: formatNumber(analytics?.totalEquipment ?? 0),
+      icon: Package,
+      iconBg: "bg-purple-100 dark:bg-purple-900/30",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      description: "All equipment listings",
+    },
+    {
+      title: "Total Bookings",
+      value: formatNumber(analytics?.totalBookings ?? 0),
+      icon: Calendar,
+      iconBg: "bg-blue-100 dark:bg-blue-900/30",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      description: analytics?.notes?.totalBookings || "Booking data unavailable",
+    },
+    {
+      title: "Pending Approvals",
+      value: formatNumber(analytics?.pendingApprovals ?? 0),
+      icon: Clock,
+      iconBg: "bg-amber-100 dark:bg-amber-900/30",
+      iconColor: "text-amber-600 dark:text-amber-400",
+      description: "Equipment awaiting review",
+    },
+    {
+      title: "Completed Rentals",
+      value: formatNumber(analytics?.completedRentals ?? 0),
+      icon: TrendingUpIcon,
+      iconBg: "bg-green-100 dark:bg-green-900/30",
+      iconColor: "text-green-600 dark:text-green-400",
+      description: analytics?.notes?.completedRentals || "Booking data unavailable",
+    },
+    {
+      title: "Total Revenue",
+      value: formatCurrency(analytics?.totalRevenue ?? 0),
+      icon: DollarSign,
+      iconBg: "bg-green-100 dark:bg-green-900/30",
+      iconColor: "text-green-600 dark:text-green-400",
+      description: analytics?.notes?.totalRevenue || "Payment data unavailable",
+    },
+  ]
+
+  const quickActions = [
+    {
+      title: "Browse Equipment",
+      description: "Find equipment to rent",
+      icon: Package,
+      iconBg: "bg-blue-100 dark:bg-blue-900/30",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      href: "/equipment",
+    },
+    {
+      title: "My Profile",
+      description: "Account settings",
+      icon: Building2,
+      iconBg: "bg-purple-100 dark:bg-purple-900/30",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      href: "/profile",
+    },
+  ]
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-background min-h-screen">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Admin Dashboard
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-sm mt-1 text-muted-foreground">
           Platform overview and management.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Users
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analytics?.totalUsers ?? 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Registered users
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Equipment
-            </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analytics?.totalEquipment ?? 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              All equipment listings
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Bookings
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analytics?.totalBookings ?? 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {analytics?.notes?.totalBookings || "Booking data unavailable"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending Approvals
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-500">{analytics?.pendingApprovals ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Equipment awaiting review
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Completed Rentals
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">{formatNumber(analytics?.completedRentals ?? 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {analytics?.notes?.completedRentals || "Booking data unavailable"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Revenue
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {formatCurrency(analytics?.totalRevenue ?? 0)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {analytics?.notes?.totalRevenue || "Payment data unavailable"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Equipment
-            </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analytics?.totalEquipment ?? 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              All listings
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-accent/10 rounded-lg text-accent">
-                <Users className="h-5 w-5" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metrics.map((metric, index) => (
+          <div
+            key={index}
+            className="bg-card border border-border rounded-xl p-5 transition-all duration-200 hover:border-primary/50 hover:shadow-lg"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${metric.iconBg}`}>
+                    <metric.icon className={`h-5 w-5 ${metric.iconColor}`} aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate text-muted-foreground">
+                      {metric.title}
+                    </p>
+                    <p className="text-xs mt-0.5 truncate text-muted-foreground/70">
+                      {metric.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-2xl font-bold tabular-nums text-foreground">
+                    {metric.value}
+                  </p>
+                </div>
               </div>
-              <CardTitle className="text-lg">All Users</CardTitle>
             </div>
-            <CardDescription>
-              Manage user roles and view registered users.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          </div>
+        ))}
+      </div>
+
+      <section aria-labelledby="equipment-status-heading">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 id="equipment-status-heading" className="text-lg font-semibold text-foreground">
+              Equipment Status Overview
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Breakdown of all equipment by approval status
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-card border border-border rounded-xl p-5 text-center transition-all duration-200 hover:border-primary/50 hover:shadow-lg">
+            <div className="text-3xl font-bold tabular-nums text-amber-500">
+              {analytics?.equipmentByStatus?.pending ?? 0}
+            </div>
+            <div className="text-sm font-medium text-muted-foreground mt-1">Pending</div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-5 text-center transition-all duration-200 hover:border-primary/50 hover:shadow-lg">
+            <div className="text-3xl font-bold tabular-nums text-green-500">
+              {analytics?.equipmentByStatus?.approved ?? 0}
+            </div>
+            <div className="text-sm font-medium text-muted-foreground mt-1">Approved</div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-5 text-center transition-all duration-200 hover:border-primary/50 hover:shadow-lg">
+            <div className="text-3xl font-bold tabular-nums text-red-500">
+              {analytics?.equipmentByStatus?.rejected ?? 0}
+            </div>
+            <div className="text-sm font-medium text-muted-foreground mt-1">Rejected</div>
+          </div>
+        </div>
+        {analytics?.notes && (
+          <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border">
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> {analytics.notes.totalBookings} | {analytics.notes.completedRentals} | {analytics.notes.totalRevenue} | {analytics.notes.monthlyBookingStats}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="quick-actions-heading">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 id="quick-actions-heading" className="text-lg font-semibold text-foreground">
+              Quick Actions
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Common administrative tasks
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {quickActions.map((action, index) => (
             <Link
-              href="/dashboard/admin/users"
-              className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors group"
+              key={index}
+              href={action.href}
+              className="bg-card border border-border rounded-xl p-5 text-center transition-all duration-200 hover:border-primary/50 hover:shadow-lg hover:bg-accent/10"
             >
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3 ${action.iconBg}`}>
+                <action.icon className={`h-6 w-6 ${action.iconColor}`} aria-hidden="true" />
+              </div>
+              <h3 className="font-semibold text-foreground">{action.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="management-links-heading">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 id="management-links-heading" className="text-lg font-semibold text-foreground">
+              Management
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Access detailed management pages
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/dashboard/admin/users" className="bg-card border border-border rounded-xl p-5 transition-all duration-200 hover:border-primary/50 hover:shadow-lg">
+            <div className="w-11 h-11 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
+              <Users className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground">All Users</h3>
+            <p className="text-sm text-muted-foreground mt-1">Manage user roles and view registered users.</p>
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary mt-3">
               Manage users
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </CardContent>
-        </Card>
+              <ArrowRight className="h-4 w-4 transition-transform hover:translate-x-1" aria-hidden="true" />
+            </span>
+          </Link>
 
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-accent/10 rounded-lg text-accent">
-                <Package className="h-5 w-5" />
-              </div>
-              <CardTitle className="text-lg">All Equipment</CardTitle>
+          <Link href="/dashboard/admin/equipment" className="bg-card border border-border rounded-xl p-5 transition-all duration-200 hover:border-primary/50 hover:shadow-lg">
+            <div className="w-11 h-11 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
+              <Package className="h-5 w-5" aria-hidden="true" />
             </div>
-            <CardDescription>
-              View and manage all equipment listings across all statuses.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href="/dashboard/admin/equipment"
-              className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors group"
-            >
+            <h3 className="text-lg font-semibold text-foreground">All Equipment</h3>
+            <p className="text-sm text-muted-foreground mt-1">View and manage all equipment listings across all statuses.</p>
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary mt-3">
               View equipment
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </CardContent>
-        </Card>
+              <ArrowRight className="h-4 w-4 transition-transform hover:translate-x-1" aria-hidden="true" />
+            </span>
+          </Link>
 
-        <Card className="group hover:border-accent/50 transition-colors">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-accent/10 rounded-lg text-accent">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <CardTitle className="text-lg">All Rentals</CardTitle>
+          <Link href="/profile" className="bg-card border border-border rounded-xl p-5 transition-all duration-200 hover:border-primary/50 hover:shadow-lg">
+            <div className="w-11 h-11 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
+              <Building2 className="h-5 w-5" aria-hidden="true" />
             </div>
-            <CardDescription>
-              View all rental orders and bookings across the platform.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href="/rentals"
-              className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 transition-colors group"
-            >
-              View rentals
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+            <h3 className="text-lg font-semibold text-foreground">My Profile</h3>
+            <p className="text-sm text-muted-foreground mt-1">Manage your account settings and preferences.</p>
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary mt-3">
+              View profile
+              <ArrowRight className="h-4 w-4 transition-transform hover:translate-x-1" aria-hidden="true" />
+            </span>
+          </Link>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Equipment Status Overview</CardTitle>
-          </div>
-          <CardDescription>
-            Breakdown of all equipment by approval status
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 bg-muted/50 rounded-lg text-center">
-              <div className="text-3xl font-bold text-yellow-500">
-                {analytics?.equipmentByStatus?.pending ?? 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Pending</div>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg text-center">
-              <div className="text-3xl font-bold text-green-500">
-                {analytics?.equipmentByStatus?.approved ?? 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Approved</div>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg text-center">
-              <div className="text-3xl font-bold text-red-500">
-                {analytics?.equipmentByStatus?.rejected ?? 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Rejected</div>
-            </div>
-          </div>
-          {analytics?.notes && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground">
-                <strong>Note:</strong> {analytics.notes.totalBookings} | {analytics.notes.completedRentals} | {analytics.notes.totalRevenue} | {analytics.notes.monthlyBookingStats}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {analytics?.monthlyBookingStats && analytics.monthlyBookingStats.length > 0 && (
+        <MonthlyBookingChart data={analytics.monthlyBookingStats} />
+      )}
     </div>
   )
 }
@@ -306,9 +307,9 @@ export default function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+      <div className="bg-background min-h-[calc(100vh-4rem)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading analytics" />
           <p className="text-muted-foreground">Loading analytics...</p>
         </div>
       </div>
@@ -317,25 +318,28 @@ export default function AdminDashboardPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <div className="text-center max-w-md mx-4">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">Unable to Load Analytics</h1>
+      <div className="bg-background min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full mx-4 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" aria-hidden="true" />
+          <h1 className="text-xl font-bold text-foreground mb-2">Unable to Load Analytics</h1>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={() => window.location.reload()} className="w-full">
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
             Refresh
-          </Button>
+          </button>
         </div>
       </div>
     )
   }
 
-  // Still loading session or profile
   if (isPending) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+      <div className="bg-background min-h-[calc(100vh-4rem)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading session" />
           <p className="text-muted-foreground">
             {isProfileLoading ? "Loading your profile..." : "Loading session..."}
           </p>
@@ -344,50 +348,40 @@ export default function AdminDashboardPage() {
     )
   }
 
-  // No valid session - redirect to login
   if (!session) {
     redirect("/login")
   }
 
-  // Session exists but profile fetch failed - show error with retry
   if (profileError) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="pt-6 pb-8 px-6 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-foreground mb-2">Unable to Load Profile</h1>
-            <p className="text-muted-foreground mb-6">{profileError}</p>
-            <Button
-              onClick={() => refetch()}
-              className="w-full"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="bg-background min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full mx-4 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" aria-hidden="true" />
+          <h1 className="text-xl font-bold text-foreground mb-2">Unable to Load Profile</h1>
+          <p className="text-muted-foreground mb-6">{profileError}</p>
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
 
-  // Profile loaded but not an admin
   if (!backendProfile || backendProfile.role !== "admin") {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="pt-6 pb-8 px-6 text-center">
-            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
-            <p className="text-muted-foreground">
-              Only administrators can access the Admin Dashboard.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="bg-background min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full mx-4 text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+          <h1 className="text-xl font-bold text-foreground mb-2">Access Denied</h1>
+          <p className="text-muted-foreground">Only administrators can access the Admin Dashboard.</p>
+        </div>
       </div>
     )
   }
 
-  // Authorized Admin - render dashboard content
   return <AdminDashboardContent analytics={analytics} />
 }

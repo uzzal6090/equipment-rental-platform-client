@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/api"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "sonner"
 
 interface EquipmentItem {
   id: string
@@ -26,14 +27,17 @@ interface EquipmentItem {
 }
 
 interface EquipmentApiResponse {
-  equipment: EquipmentItem[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-    hasNext: boolean
-    hasPrev: boolean
+  success: boolean
+  data: {
+    equipment: EquipmentItem[]
+    pagination: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+      hasNext: boolean
+      hasPrev: boolean
+    }
   }
 }
 
@@ -58,18 +62,18 @@ export function RecentlyAddedEquipment() {
         }
         const data: EquipmentApiResponse = await response.json()
         if (!cancelled) {
-          if (data.equipment.length === 0 && page === 2) {
+          if (data.data?.equipment.length === 0 && page === 2) {
             // Fall back to page 1 if page 2 is empty
             setFallbackToPage1(true)
             const fallbackResponse = await apiRequest("/api/equipment?sort=newest&limit=6&page=1")
             if (fallbackResponse.ok) {
               const fallbackData: EquipmentApiResponse = await fallbackResponse.json()
               if (!cancelled) {
-                setEquipment(fallbackData.equipment)
+                setEquipment(fallbackData.data?.equipment ?? [])
               }
             }
           } else {
-            setEquipment(data.equipment)
+            setEquipment(data.data?.equipment ?? [])
           }
         }
       } catch (err) {
@@ -100,7 +104,7 @@ export function RecentlyAddedEquipment() {
           throw new Error(`Failed to fetch equipment: ${response.status}`)
         }
         const data: EquipmentApiResponse = await response.json()
-        setEquipment(data.equipment)
+        setEquipment(data.data?.equipment ?? [])
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "An unknown error occurred")
@@ -111,6 +115,10 @@ export function RecentlyAddedEquipment() {
   }
 
   const handleViewDetails = (id: string) => {
+    if (!id || id === "undefined") {
+      toast.error("Invalid equipment selection")
+      return
+    }
     if (!session) {
       router.push("/login")
       return

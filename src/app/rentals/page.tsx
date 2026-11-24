@@ -257,15 +257,15 @@ function RentalsContent() {
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto">
-        <table className="w-full" role="table">
+        <table className="w-full min-w-[800px]" role="table">
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Equipment</th>
-              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider hidden md:table-cell">Rental Start</th>
-              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Rental End</th>
-              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Booking Date</th>
-              <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider hidden md:table-cell">Total Amount</th>
-              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Payment Status</th>
+              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Rental Start</th>
+              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Rental End</th>
+              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Booking Date</th>
+              <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Total Amount</th>
+              <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Payment Status</th>
               <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground uppercase tracking-wider">Booking Status</th>
             </tr>
           </thead>
@@ -328,19 +328,19 @@ function RentalRow({
           </div>
         </div>
       </td>
-      <td className="py-4 px-4 hidden md:table-cell">
+      <td className="py-4 px-4">
         <div className="text-sm text-foreground">{formatDate(rental.startDate)}</div>
       </td>
-      <td className="py-4 px-4 hidden lg:table-cell">
+      <td className="py-4 px-4">
         <div className="text-sm text-foreground">{formatDate(rental.endDate)}</div>
       </td>
-      <td className="py-4 px-4 hidden lg:table-cell">
+      <td className="py-4 px-4">
         <div className="text-sm text-foreground">{formatDate(rental.bookingDate)}</div>
       </td>
-      <td className="py-4 px-4 hidden md:table-cell text-right">
+      <td className="py-4 px-4 text-right">
         <div className="text-sm text-foreground font-medium">{formatCurrency(rental.totalPrice)}</div>
       </td>
-      <td className="py-4 px-4 hidden lg:table-cell">
+      <td className="py-4 px-4">
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getPaymentStatusClass(rental.paymentStatus)}`}>
           {getPaymentStatusLabel(rental.paymentStatus)}
         </span>
@@ -413,15 +413,15 @@ function RentalsSkeleton() {
       </div>
       <div className="h-px bg-border" />
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[800px]">
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-3 px-4"><div className="h-4 w-24 bg-muted rounded" /></th>
-              <th className="text-left py-3 px-4 hidden md:table-cell"><div className="h-4 w-20 bg-muted rounded" /></th>
-              <th className="text-left py-3 px-4 hidden lg:table-cell"><div className="h-4 w-24 bg-muted rounded" /></th>
-              <th className="text-left py-3 px-4 hidden lg:table-cell"><div className="h-4 w-24 bg-muted rounded" /></th>
-              <th className="text-right py-3 px-4 hidden md:table-cell"><div className="h-4 w-24 bg-muted rounded" /></th>
-              <th className="text-left py-3 px-4 hidden lg:table-cell"><div className="h-4 w-24 bg-muted rounded" /></th>
+              <th className="text-left py-3 px-4"><div className="h-4 w-20 bg-muted rounded" /></th>
+              <th className="text-left py-3 px-4"><div className="h-4 w-24 bg-muted rounded" /></th>
+              <th className="text-left py-3 px-4"><div className="h-4 w-24 bg-muted rounded" /></th>
+              <th className="text-right py-3 px-4"><div className="h-4 w-24 bg-muted rounded" /></th>
+              <th className="text-left py-3 px-4"><div className="h-4 w-24 bg-muted rounded" /></th>
               <th className="text-right py-3 px-4"><div className="h-4 w-24 bg-muted rounded" /></th>
             </tr>
           </thead>
@@ -436,11 +436,11 @@ function RentalsSkeleton() {
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4 hidden md:table-cell"><div className="h-4 w-20 bg-muted rounded" /></td>
-                <td className="py-4 px-4 hidden lg:table-cell"><div className="h-4 w-24 bg-muted rounded" /></td>
-                <td className="py-4 px-4 hidden lg:table-cell"><div className="h-4 w-24 bg-muted rounded" /></td>
-                <td className="py-4 px-4 hidden md:table-cell text-right"><div className="h-4 w-20 bg-muted rounded" /></td>
-                <td className="py-4 px-4 hidden lg:table-cell"><div className="h-6 w-24 bg-muted rounded-full" /></td>
+                <td className="py-4 px-4"><div className="h-4 w-20 bg-muted rounded" /></td>
+                <td className="py-4 px-4"><div className="h-4 w-24 bg-muted rounded" /></td>
+                <td className="py-4 px-4"><div className="h-4 w-24 bg-muted rounded" /></td>
+                <td className="py-4 px-4 text-right"><div className="h-4 w-20 bg-muted rounded" /></td>
+                <td className="py-4 px-4"><div className="h-6 w-24 bg-muted rounded-full" /></td>
                 <td className="py-4 px-4 text-right"><div className="h-6 w-24 bg-muted rounded-full" /></td>
               </tr>
             ))}

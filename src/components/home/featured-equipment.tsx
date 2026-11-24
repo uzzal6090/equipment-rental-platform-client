@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/api"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "sonner"
 
 interface EquipmentItem {
   id: string
@@ -100,12 +101,21 @@ export function FeaturedEquipment() {
       })
   }
 
-  const handleViewDetails = (id: string) => {
+  const handleViewDetails = (id: string | undefined) => {
+    const normalizedId = String(id ?? "").trim()
+
+    if (!normalizedId || normalizedId === "undefined" || normalizedId === "null") {
+      console.error("Featured Equipment: Invalid equipment ID", { id })
+      toast.error("Invalid equipment selection")
+      return
+    }
+
     if (!session) {
       router.push("/login")
       return
     }
-    router.push(`/equipment/${id}`)
+
+    router.push(`/equipment/${normalizedId}`)
   }
 
   if (loading) {
@@ -276,7 +286,12 @@ export function FeaturedEquipment() {
                     <Button
                       onClick={() => handleViewDetails(item.id)}
                       className="w-full"
-                      disabled={item.availableQuantity === 0}
+                      disabled={
+                        item.availableQuantity === 0 ||
+                        !item.id ||
+                        item.id === "undefined" ||
+                        item.id === "null"
+                      }
                     >
                       {item.availableQuantity === 0 ? "Unavailable" : "View Details"}
                     </Button>

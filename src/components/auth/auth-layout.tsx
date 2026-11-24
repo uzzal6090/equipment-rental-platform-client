@@ -100,6 +100,21 @@ export function BrandVisual({
   )
 }
 
+export function AuthBrand({
+  heading,
+}: {
+  heading: string
+}) {
+  return (
+    <div className="space-y-2 text-center">
+      <p className="text-sm font-medium text-muted-foreground tracking-wider uppercase">
+        Equipment Rental Platform
+      </p>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">{heading}</h1>
+    </div>
+  )
+}
+
 function FeatureRow({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
@@ -126,5 +141,39 @@ function CheckIcon({ className }: { className?: string }) {
     >
       <polyline points="20 6 9 17 4 12" />
     </svg>
+  )
+}
+
+export interface AuthCenteredProps {
+  children: React.ReactNode
+  className?: string
+}
+
+export function AuthCentered({ children, className }: AuthCenteredProps) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-screen items-center justify-center bg-background px-4 sm:px-6",
+        className
+      )}
+    >
+      <div className="w-full max-w-md">{children}</div>
+    </div>
+  )
+}
+
+export interface AuthCenteredCardProps {
+  brand: React.ReactNode
+  form: React.ReactNode
+}
+
+export function AuthCenteredCard({ brand, form }: AuthCenteredCardProps) {
+  return (
+    <div className="w-full">
+      <div className="text-center pb-6">
+        {brand}
+      </div>
+      {form}
+    </div>
   )
 }

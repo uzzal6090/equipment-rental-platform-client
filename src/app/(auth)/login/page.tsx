@@ -1,20 +1,22 @@
 "use client"
 
 import * as React from "react"
+import { Suspense } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { AuthLayout, AuthTwoColumn, AuthHeader, BrandVisual } from "@/components/auth/auth-layout"
+import { AuthCentered, AuthCenteredCard, AuthBrand } from "@/components/auth/auth-layout"
 import { PasswordInput } from "@/components/auth/password-input"
 import { GoogleSignInButton } from "@/components/auth/google-signin-button"
+import { Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 
 const loginSchema = z.object({
@@ -24,9 +26,31 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>
 
+const SESSION_ID_PATTERN = /^cs_[A-Za-z0-9_]+$/
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+  const returnSessionId = searchParams.get("session_id")
+  const validReturnSessionId =
+    returnSessionId !== null && SESSION_ID_PATTERN.test(returnSessionId)
+      ? returnSessionId
+      : null
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -50,7 +74,12 @@ export default function LoginPage() {
       }
 
       toast.success("Welcome back!")
-      router.push("/")
+
+      if (validReturnSessionId) {
+        router.push("/bookings/success?session_id=" + validReturnSessionId)
+      } else {
+        router.push("/")
+      }
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Login failed. Please try again."
@@ -61,23 +90,14 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout>
-      <AuthTwoColumn
+    <AuthCentered>
+      <AuthCenteredCard
         brand={
-          <BrandVisual
-            title="Welcome back"
-            subtitle="Sign in to your account to manage your equipment rentals and track your orders."
-          />
+          <AuthBrand heading="Sign In" />
         }
         form={
           <Card className="w-full">
-            <CardHeader className="pb-6">
-              <AuthHeader
-                title="Sign in"
-                description="Enter your email and password below."
-              />
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
@@ -97,9 +117,9 @@ export default function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <PasswordInput
                     id="password"
-                    label="Password"
                     autoComplete="current-password"
                     error={form.formState.errors.password?.message}
+                    placeholder="Enter your password"
                     {...form.register("password")}
                     disabled={isSubmitting}
                   />
@@ -114,10 +134,10 @@ export default function LoginPage() {
                 </Button>
               </form>
             </CardContent>
-            <CardFooter className="pt-6">
-              <Separator orientation="horizontal" className="my-4" />
-              <div className="flex items-center justify-center w-full">
-                <GoogleSignInButton className="w-full md:w-[260px]" />
+            <CardFooter className="pt-6 flex flex-col w-full">
+              <Separator orientation="horizontal" className="my-4 w-full" />
+              <div className="w-full">
+                <GoogleSignInButton className="w-full" />
               </div>
               <p className="text-sm text-muted-foreground text-center">
                 Don&apos;t have an account?{" "}
@@ -129,6 +149,6 @@ export default function LoginPage() {
           </Card>
         }
       />
-    </AuthLayout>
+    </AuthCentered>
   )
 }

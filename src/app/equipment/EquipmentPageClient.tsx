@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/utils"
+import { toast } from "sonner"
 import {
   Search,
   X,
@@ -340,6 +341,10 @@ export function EquipmentPageClient({ initialSearchParams }: EquipmentPageClient
   }
 
   const handleViewDetails = (id: string) => {
+    if (!id || id === "undefined") {
+      toast.error("Invalid equipment selection")
+      return
+    }
     if (!session) {
       router.push("/login")
       return
